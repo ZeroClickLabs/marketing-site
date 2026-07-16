@@ -1,22 +1,35 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #FDF6E3;
+  --foreground: #3D2B1F;
+  --survey-green: #2D5016;
+  --survey-green-light: #E8F0E0;
+  --survey-green-mid: #4A7C28;
+  --survey-gold: #8B6914;
+  --survey-gold-light: #F5E6C8;
+  --survey-cream: #FDF6E3;
+  --survey-card: #FFFFFF;
+  --survey-brown: #3D2B1F;
+  --survey-brown-light: #6B4E3D;
+  --survey-border: #D4C5A9;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-survey-green: var(--survey-green);
+  --color-survey-green-light: var(--survey-green-light);
+  --color-survey-green-mid: var(--survey-green-mid);
+  --color-survey-gold: var(--survey-gold);
+  --color-survey-gold-light: var(--survey-gold-light);
+  --color-survey-cream: var(--survey-cream);
+  --color-survey-card: var(--survey-card);
+  --color-survey-brown: var(--survey-brown);
+  --color-survey-brown-light: var(--survey-brown-light);
+  --color-survey-border: var(--survey-border);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
