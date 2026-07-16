@@ -6,17 +6,70 @@ declare global {
   }
 }
 
-import { useState, useTransition } from "react";
+import { useState, useEffect, useTransition } from "react";
 import { questions, type Question } from "./questions";
 import { submitSurvey } from "./actions";
 
 type Answers = Record<string, string | string[]>;
+
+const STORAGE_KEY = "farmers-market-survey";
+
+function loadFromSession(): {
+  step: number;
+  answers: Answers;
+  otherTexts: Record<string, string>;
+  openTexts: Record<string, string>;
+} | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveToSession(
+  step: number,
+  answers: Answers,
+  otherTexts: Record<string, string>,
+  openTexts: Record<string, string>
+) {
+  try {
+    sessionStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ step, answers, otherTexts, openTexts })
+    );
+  } catch {
+    // sessionStorage unavailable or full — silently ignore
+  }
+}
 
 export default function SurveyForm() {
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Answers>({});
   const [otherTexts, setOtherTexts] = useState<Record<string, string>>({});
   const [openTexts, setOpenTexts] = useState<Record<string, string>>({});
+  const [hydrated, setHydrated] = useState(false);
+
+  // Restore from sessionStorage on mount
+  useEffect(() => {
+    const saved = loadFromSession();
+    if (saved) {
+      setStep(saved.step);
+      setAnswers(saved.answers);
+      setOtherTexts(saved.otherTexts);
+      setOpenTexts(saved.openTexts);
+    }
+    setHydrated(true);
+  }, []);
+
+  // Persist to sessionStorage on changes
+  useEffect(() => {
+    if (hydrated) {
+      saveToSession(step, answers, otherTexts, openTexts);
+    }
+  }, [step, answers, otherTexts, openTexts, hydrated]);
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -135,6 +188,7 @@ export default function SurveyForm() {
 
       const result = await submitSurvey(payload);
       if (result.success) {
+        try { sessionStorage.removeItem(STORAGE_KEY); } catch {}
         if (typeof window !== "undefined" && typeof window.fbq === "function") {
           window.fbq("track", "CompleteRegistration");
         }
@@ -170,7 +224,7 @@ export default function SurveyForm() {
     <div className="min-h-screen bg-survey-cream flex flex-col items-center justify-center p-4">
       <div className="bg-survey-card rounded-2xl shadow-lg max-w-lg w-full overflow-hidden">
         {/* Progress bar */}
-        <div className="h-2 bg-survey-green-light">
+        <div className="h-2 bg-survey-green-light" role="progressbar" aria-valuenow={clampedStep + 1} aria-valuemin={1} aria-valuemax={totalSteps} aria-label={`Question ${clampedStep + 1} of ${totalSteps}`}>
           <div
             className="h-full bg-survey-green transition-all duration-300 ease-out"
             style={{ width: `${progress}%` }}
@@ -211,7 +265,7 @@ export default function SurveyForm() {
 
           {/* Error */}
           {error && (
-            <p className="text-red-600 text-sm mb-4">{error}</p>
+            <p role="alert" className="text-red-600 text-sm mb-4">{error}</p>
           )}
 
           {/* Navigation */}
@@ -337,10 +391,12 @@ function SingleSelect({
   ];
 
   return (
-    <>
+    <div role="radiogroup" aria-label={question.title} className="space-y-3">
       {allOptions.map((option) => (
         <label
           key={option}
+          role="radio"
+          aria-checked={value === option}
           className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
             value === option
               ? "border-survey-green bg-survey-green-light"
@@ -348,6 +404,7 @@ function SingleSelect({
           }`}
         >
           <span
+            aria-hidden="true"
             className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
               value === option
                 ? "border-survey-green"
@@ -379,7 +436,7 @@ function SingleSelect({
           autoFocus
         />
       )}
-    </>
+    </div>
   );
 }
 
@@ -410,13 +467,15 @@ function MultiSelect({
   }
 
   return (
-    <>
+    <div role="group" aria-label={question.title} className="space-y-3">
       <p className="text-sm text-survey-brown-light -mt-1">Select all that apply</p>
       {allOptions.map((option) => {
         const checked = values.includes(option);
         return (
           <label
             key={option}
+            role="checkbox"
+            aria-checked={checked}
             className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
               checked
                 ? "border-survey-green bg-survey-green-light"
@@ -424,6 +483,7 @@ function MultiSelect({
             }`}
           >
             <span
+              aria-hidden="true"
               className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 border-2 ${
                 checked
                   ? "border-survey-green bg-survey-green"
@@ -456,7 +516,7 @@ function MultiSelect({
           autoFocus
         />
       )}
-    </>
+    </div>
   );
 }
 
@@ -477,21 +537,21 @@ function RatingQuestion({
   const textOptions = (question.options || []).filter((o) => !/^\d$/.test(o));
 
   return (
-    <>
+    <div role="radiogroup" aria-label={question.title} className="space-y-3">
       {/* Star-style rating */}
-      <div className="flex gap-2 justify-center py-2">
+      <div className="flex gap-2 justify-center py-2" role="group" aria-label="Rating from 1 to 5">
         {numericOptions.map((num) => {
-          const selected = value === num;
           const filled = value && /^\d$/.test(value) && parseInt(num) <= parseInt(value);
           return (
             <button
               key={num}
               type="button"
+              role="radio"
+              aria-checked={value === num}
+              aria-label={`${num} out of 5`}
               onClick={() => onSelect(num)}
               className={`w-12 h-12 rounded-full text-lg font-bold transition-colors cursor-pointer ${
                 filled
-                  ? "bg-survey-gold text-white"
-                  : selected
                   ? "bg-survey-gold text-white"
                   : "bg-survey-gold-light text-survey-brown hover:bg-survey-gold hover:text-white"
               }`}
@@ -510,6 +570,8 @@ function RatingQuestion({
       {textOptions.map((option) => (
         <label
           key={option}
+          role="radio"
+          aria-checked={value === option}
           className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
             value === option
               ? "border-survey-green bg-survey-green-light"
@@ -517,6 +579,7 @@ function RatingQuestion({
           }`}
         >
           <span
+            aria-hidden="true"
             className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
               value === option ? "border-survey-green" : "border-survey-border"
             }`}
@@ -545,9 +608,10 @@ function RatingQuestion({
           placeholder={question.openTextLabel || "Any additional comments..."}
           rows={3}
           className="w-full p-3 rounded-lg border border-survey-border focus:border-survey-green focus:outline-none text-survey-brown bg-white resize-none"
+          aria-label={question.openTextLabel || "Additional comments"}
         />
       )}
-    </>
+    </div>
   );
 }
 
