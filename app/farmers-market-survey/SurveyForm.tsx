@@ -1,5 +1,11 @@
 "use client";
 
+declare global {
+  interface Window {
+    fbq?: (...args: unknown[]) => void;
+  }
+}
+
 import { useState, useTransition } from "react";
 import { questions, type Question } from "./questions";
 import { submitSurvey } from "./actions";
@@ -129,6 +135,9 @@ export default function SurveyForm() {
 
       const result = await submitSurvey(payload);
       if (result.success) {
+        if (typeof window !== "undefined" && typeof window.fbq === "function") {
+          window.fbq("track", "CompleteRegistration");
+        }
         setSubmitted(true);
       } else {
         setError(result.error || "Something went wrong. Please try again.");
