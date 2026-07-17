@@ -7,6 +7,7 @@ declare global {
 }
 
 import { useState, useEffect, useTransition } from "react";
+import { track } from "@vercel/analytics";
 import { questions, type Question } from "./questions";
 import { submitSurvey } from "./actions";
 
@@ -147,6 +148,8 @@ export default function SurveyForm() {
   function handleNext() {
     if (!validateStep()) return;
     if (step < totalSteps - 1) {
+      const q = visibleQuestions[step];
+      track("survey_question_answered", { question: q.id, step: step + 1 });
       setStep(step + 1);
       setError(null);
     }
@@ -189,6 +192,7 @@ export default function SurveyForm() {
       const result = await submitSurvey(payload);
       if (result.success) {
         try { sessionStorage.removeItem(STORAGE_KEY); } catch {}
+        track("survey_completed");
         if (typeof window !== "undefined" && typeof window.fbq === "function") {
           window.fbq("track", "CompleteRegistration");
         }
